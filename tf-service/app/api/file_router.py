@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import shutil
 import os
 import logging
+from urllib.parse import unquote
 
 router = APIRouter()
 logger = logging.getLogger("tf_main")
@@ -18,24 +19,7 @@ print(f"🟠OUTPUT_DIR: {OUTPUT_DIR}")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 logger.info(f"파일 업로드 디렉토리: {UPLOAD_DIR}")
 
-@router.get("/mosaic")
-async def mosaic_file():
-    girl = './data/girl.jpg'
-    cascade = './data/haarcascade_frontalface_alt.xml'
-    cascade = cv2.CascadeClassifier(cascade)
-    img = cv2.imread(girl)
-    face = cascade.detectMultiScale(img, minSize=(150,150))
-    if len(face) == 0:
-        print('얼굴인식 실패')
-        quit()
-    for(x,y,w,h) in face:
-        print(f'얼굴의 좌표 = {x}, {y}, {w}, {h}')
-        red = (0,0,255)
-        cv2.rectangle(img, (x, y), (x+w, y+h), red, thickness=20)
-    cv2.imwrite('./saved_data/girl-face.png',img)
-    cv2.imshow('./saved_data/girl-face',img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+CASCADE_DIR = os.path.join(BASE_DIR, "data")
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -50,7 +34,7 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        logger.info(f"파일 업로드 성공: {file.filename}")
+        logger.info(f"👻👻 파일 업로드 성공: {file.filename}")
         
         # 파일 존재 여부 확인 및 크기 정보 가져오기
         if os.path.exists(file_location):
@@ -66,9 +50,66 @@ async def upload_file(file: UploadFile = File(...)):
                 }
             )
         else:
-            logger.error(f"파일이 저장되지 않음: {file_location}")
+            logger.error(f"⚠️파일이 저장되지 않음: {file_location}")
             raise HTTPException(status_code=500, detail="파일 저장에 실패했습니다.")
             
     except Exception as e:
         logger.error(f"파일 업로드 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류가 발생했습니다: {str(e)}")
+
+@router.post("/mosaic")
+async def mosaic_file(filename: str):
+    try:
+        # URL 디코딩 처리
+        decoded_filename = unquote(filename)
+        input_path = os.path.join(UPLOAD_DIR, decoded_filename)
+        output_path = os.path.join(OUTPUT_DIR, f"mosaic_{decoded_filename}")
+
+        # output 폴더가 없으면 생성
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        # 파일 존재 여부 확인
+        if not os.path.exists(input_path):
+            logger.error(f"입력 파일 없음: {input_path}")
+            return JSONResponse(status_code=404, content={"error": f"파일을 찾을 수 없습니다: {decoded_filename}"})
+
+        # Haar Cascade 파일 경로 (절대경로로 지정)
+        cascade_path = os.path.join(CASCADE_DIR, "haarcascade_frontalface_alt.xml")
+        if not os.path.exists(cascade_path):
+            logger.error(f"cascade 파일 없음: {cascade_path}")
+            return JSONResponse(status_code=500, content={"error": f"Haar Cascade 파일이 존재하지 않습니다: {cascade_path}"})
+
+        # 이미지 읽기
+        img = cv2.imread(input_path)
+        if img is None:
+            logger.error(f"이미지 파일 읽기 실패: {input_path}")
+            return JSONResponse(status_code=400, content={"error": f"이미지 파일을 읽을 수 없습니다: {input_path}"})
+
+        cascade = cv2.CascadeClassifier(cascade_path)
+        if cascade.empty():
+            logger.error(f"cascade 로드 실패: {cascade_path}")
+            return JSONResponse(status_code=500, content={"error": f"cascade 로드 실패: {cascade_path}"})
+
+        faces = cascade.detectMultiScale(img, minSize=(30, 30))
+        if len(faces) == 0:
+            logger.info("얼굴을 찾지 못했습니다.")
+            cv2.imwrite(output_path, img)  # 얼굴이 없어도 원본 저장
+            return JSONResponse(status_code=200, content={"message": "얼굴을 찾지 못했습니다.", "output": output_path})
+
+        # 얼굴마다 10x10 모자이크 적용
+        for (x, y, w, h) in faces:
+            face_img = img[y:y+h, x:x+w]
+            if face_img.size == 0:
+                logger.warning(f"잘못된 얼굴 영역: {(x, y, w, h)}")
+                continue
+            mosaic = cv2.resize(face_img, (10, 10), interpolation=cv2.INTER_LINEAR)
+            mosaic = cv2.resize(mosaic, (w, h), interpolation=cv2.INTER_NEAREST)
+            img[y:y+h, x:x+w] = mosaic
+
+        # 결과 저장
+        cv2.imwrite(output_path, img)
+        logger.info(f"모자이크 이미지 저장: {output_path}")
+        return JSONResponse(status_code=200, content={"message": "모자이크 처리 및 저장 성공", "output": output_path})
+    except Exception as e:
+        logger.error(f"모자이크 처리 중 오류: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": f"모자이크 처리 중 오류: {str(e)}"})
