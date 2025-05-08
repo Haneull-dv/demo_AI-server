@@ -8,6 +8,7 @@ import uvicorn
 import logging
 import traceback
 import os
+import cv2
 
 # 로깅 설정
 logging.basicConfig(
@@ -29,7 +30,7 @@ logger.info(f"📂 output 폴더: {os.path.exists(output_dir)} (생성됨: {os.m
 
 # 의존성 확인
 try:
-    import cv2
+
     logger.info(f"✅ OpenCV 버전: {cv2.__version__}")
 except ImportError:
     logger.warning(f"⚠️ OpenCV가 설치되어 있지 않습니다. 얼굴 인식 기능이 동작하지 않을 수 있습니다.")

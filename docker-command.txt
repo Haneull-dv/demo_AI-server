@@ -41,8 +41,9 @@ psql -U postgres -d your_database_name
 
 
 docker-compose down  
-모든 관련 이미지를삭제:
-docker rmi $(docker images 'ai-server*' -q)  
+모든 관련 이미지를삭제: docker image prune -a 
+현재 이미지 목록 확인: docker images 
+
 Docker 캐시 정리  
 docker system prune -a 
 다시 빌드 

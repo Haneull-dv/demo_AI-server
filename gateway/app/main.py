@@ -11,7 +11,8 @@ from contextlib import asynccontextmanager
 import json
 from pydantic import BaseModel
 import traceback
-
+import json as pyjson
+import httpx
 from app.domain.model.service_proxy_factory import ServiceProxyFactory
 from app.domain.model.service_type import ServiceType
 
@@ -72,21 +73,25 @@ async def proxy_get(
     try:
         logger.info(f"GET 요청: {service.value}/{path}")
         factory = ServiceProxyFactory(service_type=service)
+        print(f"🍊1")
         response = await factory.request(
             method="GET",
             path=path,
             headers=request.headers.raw
         )
-        
+        print(f"🍊2 response: {response}")
         if response.status_code == 200:
+            print(f"🍊3 response: {response}")
             try:
                 return JSONResponse(content=response.json(), status_code=response.status_code)
             except Exception:
+                print(f"⚠️ 메인라우터 get 에러 발생")
                 return JSONResponse(
                     content={"message": "성공", "raw_response": response.text[:1000]},
                     status_code=200
                 )
         else:
+            print(f"🍊4")
             return JSONResponse(
                 content={"error": f"서비스 오류: HTTP {response.status_code}", "details": response.text[:500]},
                 status_code=response.status_code
@@ -100,72 +105,75 @@ async def proxy_get(
 
 # 통합 POST 요청 처리 (JSON 또는 파일 업로드)
 @gateway_router.post(
-    "/{service}/{path:path}", 
-    summary="통합 POST 프록시 (JSON 또는 파일 업로드)", 
+    "/{service}/{path:path}",
+    summary="통합 POST 프록시 (JSON 또는 파일 업로드)",
     description="하나의 엔드포인트에서 JSON 요청과 파일 업로드를 모두 처리합니다."
 )
 async def proxy_post(
-    service: ServiceType, 
+    service: ServiceType,
     path: str,
     request: Request,
-    file: UploadFile = File(None, description="업로드할 파일 (선택 사항)"),
-    json_data: Optional[str] = Form(None, description="JSON 형식의 데이터 (선택 사항)")
+    file: UploadFile = File(None),
+    json_data: Optional[str] = Form(None)
 ):
-    import json as pyjson
-    import httpx
     try:
-        logger.info(f"POST 요청: {service.value}/{path}")
-        headers = dict(request.headers.items())
-        # 파일 업로드 처리
+        logger.info(f"🟠1. POST 요청: {service.value}/{path}")
+        factory = ServiceProxyFactory(service_type=service)
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in ['content-length', 'host']}
+        files = None    
+        data = {}
+
+        # ✅ 파일이 있는 경우 multipart/form-data 전송
         if file and file.filename:
-            file_content = await file.read()
-            files = {"file": (file.filename, file_content, file.content_type)}
+            files = {"file": (file.filename, await file.read(), file.content_type)}
+
+
+        # ✅ json_data가 문자열로 들어왔으므로 파싱
+        if json_data:
+            try:
+                json_dict = json.loads(json_data)
+                for key, value in json_dict.items():
+                    data[key] = str(value)
+            except Exception:
+                data["json_data"] = json_data
+        elif not files:
+            # 파일도 없고 json_data도 없을 때 → 빈 JSON
             data = {}
-            if json_data:
-                try:
-                    data = pyjson.loads(json_data)
-                except Exception:
-                    data = {"json_data": json_data}
-            async with httpx.AsyncClient() as client:
-                base_url = ServiceProxyFactory(service_type=service).base_url
-                url = f"{base_url}/{service}/{path}"
-                response = await client.post(url, files=files, data=data, headers=headers)
-        else:
-            # JSON 요청 처리
-            body = None
-            if json_data:
-                try:
-                    body = pyjson.dumps(pyjson.loads(json_data))
-                except Exception:
-                    body = pyjson.dumps({"json_data": json_data})
-            else:
-                body = await request.body()
-                if not body:
-                    body = b"{}"
-            base_url = ServiceProxyFactory(service_type=service).base_url
-            url = f"{base_url}/{path}"
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, content=body, headers=headers)
-        # 응답 처리
-        if response.status_code < 400:
+            
+        # ✅ 프록시 요청
+        prefix_path = f"{service.value}/{path}"
+        response = await factory.request(
+            method="POST",
+            path=prefix_path,
+            headers=headers,
+            body=data,
+            files=files
+        )
+        logger.info(f"🟠5. response: {response}")
+        # ✅ 응답 처리
+        if response.status_code == 200:
             try:
                 return JSONResponse(content=response.json(), status_code=response.status_code)
             except Exception:
                 return JSONResponse(
                     content={"message": "성공", "raw_response": response.text[:1000]},
-                    status_code=response.status_code
+                    status_code=200
                 )
         else:
             return JSONResponse(
                 content={"error": f"서비스 오류: HTTP {response.status_code}", "details": response.text[:500]},
                 status_code=response.status_code
             )
+
     except Exception as e:
-        logger.error(f"게이트웨이 오류: {str(e)}")
+        logger.error(f"⚠️ 게이트웨이 오류: {str(e)}")
         return JSONResponse(
             content={"error": str(e)},
             status_code=500
         )
+
+
+        
 
 # PUT
 @gateway_router.put("/{service}/{path:path}", summary="PUT 프록시")

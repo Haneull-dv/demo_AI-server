@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11.9-slim
 
 # 환경변수 설정 - Python 출력 버퍼링 비활성화 및 한글 인코딩 설정
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -62,27 +62,5 @@ RUN ls -la /app && \
 # 포트 노출
 EXPOSE 9004
 
-# 컨테이너 시작 시 실행할 스크립트 생성
-COPY <<EOF /app/entrypoint.sh
-#!/bin/bash
-set -e
-
-echo "✨ Starting NLP service..."
-echo "📂 Current directory: \$(pwd)"
-echo "📂 Directory contents:"
-ls -la
-echo "📂 Original directory contents:"
-ls -la original
-echo "📂 Output directory contents:"
-ls -la output
-echo "🚀 Starting server..."
-
-# 서버 실행
-exec uvicorn app.main:app --host 0.0.0.0 --port 9004
-EOF
-
-# 스크립트 실행 권한 부여
-RUN chmod +x /app/entrypoint.sh
-
 # 애플리케이션 실행 명령
-CMD ["/app/entrypoint.sh"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9004", "--reload"]

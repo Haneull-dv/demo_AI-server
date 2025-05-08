@@ -11,8 +11,13 @@ services:
       - CRIME_SERVICE_URL=http://crime-service:9002
       - NLP_SERVICE_URL=http://nlp-service:9004
       - TF_SERVICE_URL=http://tf-service:9005
+      - CHAT_SERVICE_URL=http://chat-service:9006
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
+    volumes:
+      - ./gateway:/app
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
 
   titanic-service:
     build:
@@ -21,8 +26,13 @@ services:
     container_name: titanic
     ports:
       - "9001:9001"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
+    volumes:
+      - ./titanic-service:/app
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9001 --reload
 
   crime-service:
     build:
@@ -31,12 +41,16 @@ services:
     container_name: crime
     ports:
       - "9002:9002"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
     volumes:
+      - ./crime-service:/app
       - /c/Users/bitcamp/Documents/demo/v2/ai-server/crime-service/app/stored_map:/app/stored_map
       - /c/Users/bitcamp/Documents/demo/v2/ai-server/crime-service/app/up_data:/app/up_data
       - /c/Users/bitcamp/Documents/demo/v2/ai-server/crime-service/app/stored_data:/app/stored_data
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
 
   # 테스트용 NLP 서비스 (7000 포트)
   nlp-test-service:
@@ -46,12 +60,15 @@ services:
     container_name: nlp-test
     ports:
       - "7000:7000"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
     volumes:
+      - ./nlp-service:/app
       - ./nlp-service/app/original:/app/original
       - ./nlp-service/app/output:/app/output
-    command: ["uvicorn", "app.tests.test_samsung_report:app", "--host", "0.0.0.0", "--port", "7000"]
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 7000 --reload
 
   # 운영용 NLP 서비스 (9004 포트)
   nlp-service:
@@ -61,12 +78,15 @@ services:
     container_name: nlp
     ports:
       - "9004:9004"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
     volumes:
+      - ./nlp-service:/app
       - ./nlp-service/app/original:/app/original
       - ./nlp-service/app/output:/app/output
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9004"]
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9004 --reload
 
   # 테스트용 TF 서비스 (7070 포트)
   tf-test-service:
@@ -76,9 +96,13 @@ services:
     container_name: tf-test
     ports:
       - "7070:7070"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
-    command: ["uvicorn", "app.tests.test_calc:app", "--host", "0.0.0.0", "--port", "7070"]
+    volumes:
+      - ./tf-service:/app
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 7070 --reload
 
   # 운영용 TF 서비스 (9005 포트)
   tf-service:
@@ -88,12 +112,29 @@ services:
     container_name: tf
     ports:
       - "9005:9005"
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
     volumes:
-      - ./tf-service/uploads:/app/uploads 
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9005"]
+      - ./tf-service:/app
+      - ./tf-service/uploads:/app/uploads
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9005 --reload
 
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat
+    ports:
+      - "9006:9006"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - ai-network
+    volumes:
+      - ./chat-service:/app
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9006 --reload
 
 networks:
   ai-network:

@@ -51,28 +51,28 @@ class ServiceProxyFactory:
             httpx.Response: 대상 서비스의 응답
         """
         url = f"{self.base_url}/{path}" if not path.startswith("http") else path
-        logger.info(f"요청 URL: {url}")
+        logger.info(f"🍎1. 요청 URL: {url}")
         
         # 요청 헤더 설정
         request_headers = {}
         if headers:
-            for k, v in headers:
+            for k, v in headers.items():
                 # 호스트 헤더 제외 (URL에 맞게 자동으로 설정됨)
-                if k.decode('utf-8').lower() != 'host':
-                    request_headers[k.decode('utf-8')] = v.decode('utf-8')
+                 if k.lower() != 'host':
+                    request_headers[k] = v
         
         # JSON 페이로드 또는 폼 데이터로 요청 전송
         timeout = httpx.Timeout(30.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 if method.upper() == 'GET':
-                    logger.info(f"GET 요청 전송: {url}")
+                    logger.info(f"🍎2. GET 요청 전송: {url}")
                     response = await client.get(url, headers=request_headers)
                 
                 elif method.upper() == 'POST':
                     if files:
                         # 파일 업로드 요청인 경우
-                        logger.info(f"POST 파일 업로드 요청 전송: {url}")
+                        logger.info(f"🍎3. POST 파일 업로드 요청 전송: {url}")
                         response = await client.post(
                             url, 
                             headers=request_headers,
@@ -81,7 +81,7 @@ class ServiceProxyFactory:
                         )
                     else:
                         # JSON 요청인 경우
-                        logger.info(f"POST JSON 요청 전송: {url}")
+                        logger.info(f"🍎4. POST JSON 요청 전송: {url}")
                         # 바디가 문자열인지 확인하여 JSON 처리
                         json_data = None
                         if body:
@@ -100,15 +100,15 @@ class ServiceProxyFactory:
                             response = await client.post(url, headers=request_headers)
                 
                 elif method.upper() == 'PUT':
-                    logger.info(f"PUT 요청 전송: {url}")
+                    logger.info(f"🍎5. PUT 요청 전송: {url}")
                     response = await client.put(url, headers=request_headers, content=body)
                 
                 elif method.upper() == 'DELETE':
-                    logger.info(f"DELETE 요청 전송: {url}")
+                    logger.info(f"🍎6. DELETE 요청 전송: {url}")
                     response = await client.delete(url, headers=request_headers, content=body)
                 
                 elif method.upper() == 'PATCH':
-                    logger.info(f"PATCH 요청 전송: {url}")
+                    logger.info(f"🍎7. PATCH 요청 전송: {url}")
                     response = await client.patch(url, headers=request_headers, content=body)
                 
                 else:
@@ -119,11 +119,11 @@ class ServiceProxyFactory:
                         detail=error_msg
                     )
                 
-                logger.info(f"응답 상태 코드: {response.status_code}")
+                logger.info(f"🍎8. 응답 상태 코드: {response.status_code}")
                 return response
                 
             except httpx.RequestError as e:
-                error_msg = f"요청 중 오류 발생: {str(e)}"
+                error_msg = f"⚠️요청 중 오류 발생: {str(e)}"
                 logger.error(error_msg)
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
