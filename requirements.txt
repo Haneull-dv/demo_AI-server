@@ -17,4 +17,4 @@ python-jose[cryptography]
 redis==5.2.1 
 httpx==0.26.0
 googlemaps
-folium 
+folium
