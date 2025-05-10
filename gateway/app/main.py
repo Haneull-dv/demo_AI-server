@@ -114,7 +114,7 @@ async def proxy_post(
     path: str,
     request: Request,
     file: UploadFile = File(None),
-    json_data: Optional[str] = Form(None)
+    json_data: str = Form(None)
 ):
     try:
         logger.info(f"🟠1. POST 요청: {service.value}/{path}")

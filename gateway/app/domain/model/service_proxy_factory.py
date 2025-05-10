@@ -26,7 +26,7 @@ class ServiceProxyFactory:
             logger.error(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
         
-        logger.info(f"서비스 프록시 생성: {service_type} → {self.base_url}")
+        logger.info(f"🩷서비스 프록시 생성: {service_type} → {self.base_url}")
 
     async def request(
         self, 

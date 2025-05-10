@@ -1,10 +1,11 @@
 import cv2
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import shutil
 import os
 import logging
 from urllib.parse import unquote
+from typing import Optional
 
 router = APIRouter()
 logger = logging.getLogger("tf_main")
@@ -23,7 +24,7 @@ CASCADE_DIR = os.path.join(BASE_DIR, "data")
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    logger.info("업로드 요청 도착!")
+    logger.info("👻👻업로드 요청 도착!")
     if not file:
         raise HTTPException(status_code=400, detail="파일이 전송되지 않았습니다.")
     
@@ -34,7 +35,7 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        logger.info(f"👻👻 파일 업로드 성공: {file.filename}")
+        logger.info(f"🥰🥰파일 업로드 성공: {file.filename}")
         
         # 파일 존재 여부 확인 및 크기 정보 가져오기
         if os.path.exists(file_location):
@@ -58,12 +59,16 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"파일 업로드 중 오류가 발생했습니다: {str(e)}")
 
 @router.post("/mosaic")
-async def mosaic_file(filename: str):
+async def mosaic_file(filename: str = Form(...)):
+    logger.info(f"👻👻 모자이크 요청 도착: {filename}")
     try:
         # URL 디코딩 처리
         decoded_filename = unquote(filename)
         input_path = os.path.join(UPLOAD_DIR, decoded_filename)
         output_path = os.path.join(OUTPUT_DIR, f"mosaic_{decoded_filename}")
+        
+        logger.info(f"입력 파일 경로: {input_path}")
+        logger.info(f"출력 파일 경로: {output_path}")
 
         # output 폴더가 없으면 생성
         os.makedirs(OUTPUT_DIR, exist_ok=True)
