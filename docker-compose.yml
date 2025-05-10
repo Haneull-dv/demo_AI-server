@@ -128,6 +128,8 @@ services:
     container_name: chat
     ports:
       - "9006:9006"
+    env_file:
+      - ./chat-service/.env
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -135,6 +137,7 @@ services:
     volumes:
       - ./chat-service:/app
     command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9006 --reload
+
 
 networks:
   ai-network:
