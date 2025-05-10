@@ -119,26 +119,36 @@ async def proxy_post(
     try:
         logger.info(f"🟠1. POST 요청: {service.value}/{path}")
         factory = ServiceProxyFactory(service_type=service)
-        headers = {k: v for k, v in request.headers.items() if k.lower() not in ['content-length', 'host']}
-        files = None    
-        data = {}
+        
+        # Content-Type 헤더 제거 (httpx가 자동으로 설정하도록)
+        headers = {k: v for k, v in request.headers.items() 
+                  if k.lower() not in ['content-length', 'host', 'content-type']}
+        
+        # multipart/form-data 형식으로 모든 데이터 전송
+        files = {}  # 빈 딕셔너리로 초기화
 
-        # ✅ 파일이 있는 경우 multipart/form-data 전송
+        # ✅ 파일이 있는 경우 files에 추가
         if file and file.filename:
-            files = {"file": (file.filename, await file.read(), file.content_type)}
+            files["file"] = (file.filename, await file.read(), file.content_type)
+            logger.info(f"파일 업로드 설정: {file.filename}")
 
-
-        # ✅ json_data가 문자열로 들어왔으므로 파싱
+        # ✅ json_data를 filename 필드로 설정
         if json_data:
             try:
+                # JSON 문자열인 경우 파싱 시도
                 json_dict = json.loads(json_data)
-                for key, value in json_dict.items():
-                    data[key] = str(value)
-            except Exception:
-                data["json_data"] = json_data
-        elif not files:
-            # 파일도 없고 json_data도 없을 때 → 빈 JSON
-            data = {}
+                if isinstance(json_dict, dict) and "filename" in json_dict:
+                    # JSON에 filename 필드가 있는 경우
+                    files["filename"] = (None, json_dict["filename"])
+                    logger.info(f"JSON에서 filename 필드 추출: {json_dict['filename']}")
+                else:
+                    # JSON이지만 filename 필드가 없는 경우
+                    files["filename"] = (None, json_data)
+                    logger.info(f"JSON 데이터를 그대로 filename으로 사용: {json_data}")
+            except json.JSONDecodeError:
+                # JSON이 아닌 경우 그대로 filename으로 사용
+                files["filename"] = (None, json_data)
+                logger.info(f"일반 문자열을 filename으로 사용: {json_data}")
             
         # ✅ 프록시 요청
         prefix_path = f"{service.value}/{path}"
@@ -146,8 +156,7 @@ async def proxy_post(
             method="POST",
             path=prefix_path,
             headers=headers,
-            body=data,
-            files=files
+            files=files  # 모든 데이터를 files로 전송
         )
         logger.info(f"🟠5. response: {response}")
         # ✅ 응답 처리
