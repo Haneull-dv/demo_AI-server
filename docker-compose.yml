@@ -6,13 +6,8 @@ services:
     container_name: gateway
     ports:
       - "9000:9000"
-    environment:
-      - TITANIC_SERVICE_URL=http://titanic-service:9001
-      - CRIME_SERVICE_URL=http://crime-service:9002
-      - NLP_SERVICE_URL=http://nlp-service:9004
-      - TF_SERVICE_URL=http://tf-service:9005
-      - CHAT_SERVICE_URL=http://chat-service:9006
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./gateway/.env
     networks:
       - ai-network
     volumes:
@@ -26,8 +21,8 @@ services:
     container_name: titanic
     ports:
       - "9001:9001"
-    environment:
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./titanic-service/.env
     networks:
       - ai-network
     volumes:
@@ -41,8 +36,8 @@ services:
     container_name: crime
     ports:
       - "9002:9002"
-    environment:
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./crime-service/.env
     networks:
       - ai-network
     volumes:
@@ -52,25 +47,6 @@ services:
       - /c/Users/bitcamp/Documents/demo/v2/ai-server/crime-service/app/stored_data:/app/stored_data
     command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
 
-  # 테스트용 NLP 서비스 (7000 포트)
-  nlp-test-service:
-    build:
-      context: ./nlp-service
-      dockerfile: Dockerfile
-    container_name: nlp-test
-    ports:
-      - "7000:7000"
-    environment:
-      - PYTHONUNBUFFERED=1
-    networks:
-      - ai-network
-    volumes:
-      - ./nlp-service:/app
-      - ./nlp-service/app/original:/app/original
-      - ./nlp-service/app/output:/app/output
-    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 7000 --reload
-
-  # 운영용 NLP 서비스 (9004 포트)
   nlp-service:
     build:
       context: ./nlp-service
@@ -78,8 +54,8 @@ services:
     container_name: nlp
     ports:
       - "9004:9004"
-    environment:
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./nlp-service/.env
     networks:
       - ai-network
     volumes:
@@ -88,23 +64,6 @@ services:
       - ./nlp-service/app/output:/app/output
     command: python -m uvicorn app.main:app --host 0.0.0.0 --port 9004 --reload
 
-  # 테스트용 TF 서비스 (7070 포트)
-  tf-test-service:
-    build:
-      context: ./tf-service
-      dockerfile: Dockerfile
-    container_name: tf-test
-    ports:
-      - "7070:7070"
-    environment:
-      - PYTHONUNBUFFERED=1
-    networks:
-      - ai-network
-    volumes:
-      - ./tf-service:/app
-    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 7070 --reload
-
-  # 운영용 TF 서비스 (9005 포트)
   tf-service:
     build:
       context: ./tf-service
@@ -112,8 +71,8 @@ services:
     container_name: tf
     ports:
       - "9005:9005"
-    environment:
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./tf-service/.env
     networks:
       - ai-network
     volumes:
@@ -130,8 +89,6 @@ services:
       - "9006:9006"
     env_file:
       - ./chat-service/.env
-    environment:
-      - PYTHONUNBUFFERED=1
     networks:
       - ai-network
     volumes:

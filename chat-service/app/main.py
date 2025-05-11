@@ -29,9 +29,4 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
 print(f"🩷0 메인 진입")

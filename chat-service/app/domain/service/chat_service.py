@@ -75,7 +75,13 @@ class ChatService:
             if not response:
                 response = "죄송합니다. 응답을 생성하지 못했습니다. 다시 시도해주세요."
             
-            return {"message": response}
+            return {
+                "response": response,
+                "metadata": {
+                    "model": self.model_name,
+                    "temperature": 0.8
+                }
+            }
             
         except Exception as e:
             logger.error(f"응답 생성 중 오류 발생: {str(e)}")
