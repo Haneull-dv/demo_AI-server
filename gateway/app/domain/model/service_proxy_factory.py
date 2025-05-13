@@ -33,9 +33,8 @@ class ServiceProxyFactory:
         method: str, 
         path: str, 
         headers: Dict[str, str] = None,
-        body: Any = None,
-        files: Dict[str, Tuple[str, bytes, str]] = None,
-        form_data: Dict[str, str] = None
+        data: Dict[str, Any] = None,
+        files: Dict[str, Tuple[str, bytes, str]] = None
     ):
         """HTTP 요청을 대상 서비스로 전달
 
@@ -43,9 +42,8 @@ class ServiceProxyFactory:
             method (str): HTTP 메서드 (GET, POST, PUT, DELETE, PATCH)
             path (str): 요청 경로
             headers (Dict[str, str], optional): HTTP 헤더. 기본값은 None.
-            body (Any, optional): 요청 바디. 기본값은 None.
+            data (Dict[str, Any], optional): 폼 데이터. 기본값은 None.
             files (Dict[str, Tuple[str, bytes, str]], optional): 업로드할 파일. 기본값은 None.
-            form_data (Dict[str, str], optional): 폼 데이터. 기본값은 None.
 
         Returns:
             httpx.Response: 대상 서비스의 응답
@@ -58,10 +56,10 @@ class ServiceProxyFactory:
         if headers:
             for k, v in headers.items():
                 # 호스트 헤더 제외 (URL에 맞게 자동으로 설정됨)
-                 if k.lower() != 'host':
+                if k.lower() != 'host':
                     request_headers[k] = v
         
-        # JSON 페이로드 또는 폼 데이터로 요청 전송
+        # 요청 전송
         timeout = httpx.Timeout(30.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
@@ -70,46 +68,25 @@ class ServiceProxyFactory:
                     response = await client.get(url, headers=request_headers)
                 
                 elif method.upper() == 'POST':
-                    if files:
-                        # 파일 업로드 요청인 경우
-                        logger.info(f"🍎3. POST 파일 업로드 요청 전송: {url}")
-                        response = await client.post(
-                            url, 
-                            headers=request_headers,
-                            files=files,
-                            data=form_data
-                        )
-                    else:
-                        # JSON 요청인 경우
-                        logger.info(f"🍎4. POST JSON 요청 전송: {url}")
-                        # 바디가 문자열인지 확인하여 JSON 처리
-                        json_data = None
-                        if body:
-                            if isinstance(body, str):
-                                try:
-                                    json_data = json.loads(body)
-                                except json.JSONDecodeError:
-                                    # JSON 파싱 실패 시 데이터로 전송
-                                    response = await client.post(url, headers=request_headers, content=body)
-                                    return response
-                            else:
-                                json_data = body
-                            
-                            response = await client.post(url, headers=request_headers, json=json_data)
-                        else:
-                            response = await client.post(url, headers=request_headers)
+                    logger.info(f"🍎3. POST 요청 전송: {url}")
+                    response = await client.post(
+                        url, 
+                        headers=request_headers,
+                        data=data,
+                        files=files
+                    )
                 
                 elif method.upper() == 'PUT':
-                    logger.info(f"🍎5. PUT 요청 전송: {url}")
-                    response = await client.put(url, headers=request_headers, content=body)
+                    logger.info(f"🍎4. PUT 요청 전송: {url}")
+                    response = await client.put(url, headers=request_headers, data=data)
                 
                 elif method.upper() == 'DELETE':
-                    logger.info(f"🍎6. DELETE 요청 전송: {url}")
-                    response = await client.delete(url, headers=request_headers, content=body)
+                    logger.info(f"🍎5. DELETE 요청 전송: {url}")
+                    response = await client.delete(url, headers=request_headers)
                 
                 elif method.upper() == 'PATCH':
-                    logger.info(f"🍎7. PATCH 요청 전송: {url}")
-                    response = await client.patch(url, headers=request_headers, content=body)
+                    logger.info(f"🍎6. PATCH 요청 전송: {url}")
+                    response = await client.patch(url, headers=request_headers, data=data)
                 
                 else:
                     error_msg = f"지원하지 않는 HTTP 메서드: {method}"
@@ -119,7 +96,7 @@ class ServiceProxyFactory:
                         detail=error_msg
                     )
                 
-                logger.info(f"🍎8. 응답 상태 코드: {response.status_code}")
+                logger.info(f"🍎7. 응답 상태 코드: {response.status_code}")
                 return response
                 
             except httpx.RequestError as e:

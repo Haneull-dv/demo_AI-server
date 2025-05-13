@@ -124,31 +124,38 @@ async def proxy_post(
         headers = {k: v for k, v in request.headers.items() 
                   if k.lower() not in ['content-length', 'host', 'content-type']}
         
-        # multipart/form-data 형식으로 모든 데이터 전송
-        files = {}  # 빈 딕셔너리로 초기화
+        # 데이터 초기화
+        files = {}  # 파일 데이터용
+        data = {}   # 폼 데이터용
 
         # ✅ 파일이 있는 경우 files에 추가
         if file and file.filename:
             files["file"] = (file.filename, await file.read(), file.content_type)
             logger.info(f"파일 업로드 설정: {file.filename}")
 
-        # ✅ json_data를 filename 필드로 설정
+        # ✅ json_data를 서비스 타입에 따라 적절한 키로 data에 추가
         if json_data:
             try:
                 # JSON 문자열인 경우 파싱 시도
                 json_dict = json.loads(json_data)
                 if isinstance(json_dict, dict) and "filename" in json_dict:
                     # JSON에 filename 필드가 있는 경우
-                    files["filename"] = (None, json_dict["filename"])
+                    data["filename"] = json_dict["filename"]
                     logger.info(f"JSON에서 filename 필드 추출: {json_dict['filename']}")
                 else:
                     # JSON이지만 filename 필드가 없는 경우
-                    files["filename"] = (None, json_data)
+                    data["filename"] = json_data
                     logger.info(f"JSON 데이터를 그대로 filename으로 사용: {json_data}")
             except json.JSONDecodeError:
-                # JSON이 아닌 경우 그대로 filename으로 사용
-                files["filename"] = (None, json_data)
+                # JSON이 아닌 경우 그대로 사용
+                data["filename"] = json_data
                 logger.info(f"일반 문자열을 filename으로 사용: {json_data}")
+
+        # ✅ 서비스 타입에 따라 data 키 변경
+        if service == ServiceType.CHAT:
+            if "filename" in data:
+                data["message"] = data.pop("filename")
+                logger.info(f"chat 서비스용으로 키를 'message'로 변경: {data['message']}")
             
         # ✅ 프록시 요청
         prefix_path = f"{service.value}/{path}"
@@ -156,7 +163,8 @@ async def proxy_post(
             method="POST",
             path=prefix_path,
             headers=headers,
-            files=files  # 모든 데이터를 files로 전송
+            data=data if data else None,  # data가 비어있으면 None 전달
+            files=files if files else None  # files가 비어있으면 None 전달
         )
         logger.info(f"🟠5. response: {response}")
         # ✅ 응답 처리
